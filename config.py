@@ -1,0 +1,2 @@
+TELEGRAM_TOKEN = "dán_token_bot_vào_đây"
+ALLOWED_CHAT_ID = 123456789
