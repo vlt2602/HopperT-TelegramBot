@@ -7,7 +7,7 @@ import asyncio
 
 app = Flask(__name__)
 
-# Khởi tạo bot chỉ 1 lần
+# Khởi tạo application 1 lần duy nhất
 application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 application.add_handler(CommandHandler("status", status))
 application.add_handler(CommandHandler("resume", resume))
@@ -23,6 +23,9 @@ application.add_handler(CommandHandler("menu", menu))
 application.add_handler(CommandHandler("top", top))
 application.add_handler(CommandHandler("resetlog", resetlog))
 application.add_handler(CommandHandler("pause", pause))
+
+# Khởi tạo Application trước khi xử lý update
+asyncio.run(application.initialize())
 
 async def process_update(update_json):
     update = Update.de_json(update_json, application.bot)
