@@ -178,6 +178,5 @@ async def start_telegram_bot():
         app.add_handler(CommandHandler("resetlog", resetlog))
         app.add_handler(CommandHandler("pause", pause))
         logger.info("✅ Telegram bot đã sẵn sàng...")
-        await app.run_polling()
     except Exception as e:
         logger.error(f"❌ Lỗi khởi động bot: {e}")
