@@ -1,5 +1,8 @@
 {
-    "bot_active": true,
+    "panic_mode": false,
+    "loss_streak": 0,
     "capital_limit": 500,
+    "capital_limit_init": 500,
+    "bot_active": true,
     "last_order": null
 }
