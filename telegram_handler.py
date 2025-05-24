@@ -1,81 +1,108 @@
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from config import TELEGRAM_TOKEN, ALLOWED_CHAT_ID
-import builtins
 import csv
 import os
+import json
 import logging
 
 # Thiết lập logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Biến trạng thái toàn cục
-builtins.panic_mode = False
-builtins.loss_streak = 0
-builtins.capital_limit = 500
-builtins.capital_limit_init = 500
-builtins.bot_active = True
-builtins.last_order = None
+STATUS_FILE = "status.json"
+
+def read_status():
+    if not os.path.exists(STATUS_FILE):
+        with open(STATUS_FILE, "w") as f:
+            json.dump({
+                "panic_mode": False,
+                "loss_streak": 0,
+                "capital_limit": 500,
+                "capital_limit_init": 500,
+                "bot_active": True,
+                "last_order": None
+            }, f)
+    with open(STATUS_FILE, "r") as f:
+        return json.load(f)
+
+def write_status(status):
+    with open(STATUS_FILE, "w") as f:
+        json.dump(status, f)
 
 def check_auth(update: Update):
     return update.effective_chat.id == ALLOWED_CHAT_ID
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not check_auth(update): return
-    state = "🟢 ĐANG CHẠY" if builtins.bot_active else "🔴 ĐANG DỪNG"
+    status_data = read_status()
+    state = "🟢 ĐANG CHẠY" if status_data["bot_active"] else "🔴 ĐANG DỪNG"
     await update.message.reply_text(f"✅ HopperT đang hoạt động!\nTrạng thái bot: {state}")
 
 async def resume(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not check_auth(update): return
-    builtins.panic_mode = False
-    builtins.loss_streak = 0
+    status_data = read_status()
+    status_data["panic_mode"] = False
+    status_data["loss_streak"] = 0
+    write_status(status_data)
     await update.message.reply_text("✅ Đã gỡ Panic Stop. Tiếp tục giao dịch.")
 
 async def toggle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not check_auth(update): return
-    builtins.bot_active = not builtins.bot_active
-    state = "🟢 Bot ĐANG CHẠY" if builtins.bot_active else "🔴 Bot ĐÃ DỪNG"
+    status_data = read_status()
+    status_data["bot_active"] = not status_data["bot_active"]
+    write_status(status_data)
+    state = "🟢 Bot ĐANG CHẠY" if status_data["bot_active"] else "🔴 Bot ĐÃ DỪNG"
     await update.message.reply_text(f"⚙️ Trạng thái bot: {state}")
 
 async def setcapital(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not check_auth(update): return
+    status_data = read_status()
     try:
         amount = float(context.args[0])
         if amount < 0:
             await update.message.reply_text("❌ Vui lòng nhập số dương.")
             return
-        builtins.capital_limit = amount
-        builtins.capital_limit_init = amount
+        status_data["capital_limit"] = amount
+        status_data["capital_limit_init"] = amount
+        write_status(status_data)
         await update.message.reply_text(f"✅ Cập nhật vốn tối đa: {amount} USDT")
     except:
         await update.message.reply_text("❌ Sai cú pháp. Dùng: /setcapital [số_usdt]")
 
 async def capital(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not check_auth(update): return
-    await update.message.reply_text(f"💰 Vốn giới hạn: {builtins.capital_limit} USDT")
+    status_data = read_status()
+    await update.message.reply_text(f"💰 Vốn giới hạn: {status_data['capital_limit']} USDT")
 
 async def addcapital(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not check_auth(update): return
-    builtins.capital_limit += 100
-    builtins.capital_limit_init += 100
-    await update.message.reply_text(f"➕ Tăng vốn +100\n👉 Vốn hiện tại: {builtins.capital_limit} USDT")
+    status_data = read_status()
+    status_data["capital_limit"] += 100
+    status_data["capital_limit_init"] += 100
+    write_status(status_data)
+    await update.message.reply_text(f"➕ Tăng vốn +100\n👉 Vốn hiện tại: {status_data['capital_limit']} USDT")
 
 async def removecapital(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not check_auth(update): return
-    builtins.capital_limit = max(0, builtins.capital_limit - 100)
-    builtins.capital_limit_init = max(0, builtins.capital_limit_init - 100)
-    await update.message.reply_text(f"➖ Giảm vốn -100\n👉 Vốn hiện tại: {builtins.capital_limit} USDT")
+    status_data = read_status()
+    status_data["capital_limit"] = max(0, status_data["capital_limit"] - 100)
+    status_data["capital_limit_init"] = max(0, status_data["capital_limit_init"] - 100)
+    write_status(status_data)
+    await update.message.reply_text(f"➖ Giảm vốn -100\n👉 Vốn hiện tại: {status_data['capital_limit']} USDT")
 
 async def resetcapital(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not check_auth(update): return
-    builtins.capital_limit = 500
-    builtins.capital_limit_init = 500
+    status_data = read_status()
+    status_data["capital_limit"] = 500
+    status_data["capital_limit_init"] = 500
+    write_status(status_data)
     await update.message.reply_text("🔁 Reset vốn về mặc định: 500 USDT")
 
 async def lastorder(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not check_auth(update): return
-    msg = builtins.last_order or "⚠️ Chưa có lệnh nào gần đây."
+    status_data = read_status()
+    msg = status_data["last_order"] or "⚠️ Chưa có lệnh nào gần đây."
     await update.message.reply_text(f"📦 Lệnh gần nhất:\n{msg}")
 
 async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -119,7 +146,9 @@ async def resetlog(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def pause(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not check_auth(update): return
-    builtins.bot_active = False
+    status_data = read_status()
+    status_data["bot_active"] = False
+    write_status(status_data)
     await update.message.reply_text("⏸ Bot đã tạm dừng. Gõ /resume để chạy lại.")
 
 async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
